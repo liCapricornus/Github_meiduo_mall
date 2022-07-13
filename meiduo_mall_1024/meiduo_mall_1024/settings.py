@@ -156,7 +156,7 @@ CACHES = {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
     },
-    "captcha_code": {   # redis存储 图片验证码信息
+    "captcha_code": {   # setex key seconds value  redis_cli.setex(uuid,100,text)
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": "redis://127.0.0.1:6379/2",
         "OPTIONS": {

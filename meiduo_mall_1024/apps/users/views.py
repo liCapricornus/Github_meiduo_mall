@@ -137,7 +137,7 @@ class RegisterView(View):
         if not re.match(r'^1[345789]\d{9}$', mobile):
             return JsonResponse({'code': 400, 'errmsg': '手机号格式错误！'})
         #   判断手机号是否存在
-        if User.objects.filter(username=username):
+        if User.objects.filter(mobile=mobile):
             return JsonResponse({'code':400,'errmsg':'手机号已注册！'})
 
         #     3.6 需要同意协议
