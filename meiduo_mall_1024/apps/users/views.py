@@ -112,10 +112,11 @@ class RegisterView(View):
         password2 = body_dict.get('password2')
         mobile = body_dict.get('mobile')
         allow = body_dict.get('allow')
+        sms_code = body_dict.get('sms_code')
         # 3. 验证数据
 
         #     3.1 用户名，密码，确认密码，手机号，是否同意协议 都要有
-        if not all([username,password,password2,mobile,allow]):
+        if not all([username,password,password2,mobile,allow,sms_code]):
             return JsonResponse({'code': 400, 'errmsg': '参数不全'})
 
         #     3.2 用户名满足规则
@@ -140,6 +141,17 @@ class RegisterView(View):
         if User.objects.filter(mobile=mobile):
             return JsonResponse({'code':400,'errmsg':'手机号已注册！'})
 
+        #   判断短信验证码是否正确
+        #       1)获取数据
+        from django_redis import get_redis_connection
+        redis_cli = get_redis_connection('captcha_code')
+        sms_code_redis = redis_cli.get(mobile)
+        #       2对比数据
+        if sms_code_redis is None:
+            return JsonResponse({'code':400,'errmsg':'图片验证码已过期'})
+        # 3.3对比数据
+        if sms_code_redis.decode() != sms_code:
+            return JsonResponse({'code': 400, 'errmsg': '短信验证码输入错误！'})
         #     3.6 需要同意协议
         if allow is False:
             return JsonResponse({'code': 400, 'errmsg': '请勾选用户协议！'})

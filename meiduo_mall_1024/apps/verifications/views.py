@@ -29,7 +29,7 @@ from apps.users.models import User
 """
 
 class ImageCodeView(View):
-    """图片验证码功能实现"""
+    """生成图片验证码"""
     def get(self,request,uuid):
         # 1. 接收路由中的uuid
         # 2. 生成图片验证码和图片二进制
@@ -106,7 +106,7 @@ debug + 断点配合使用 这个我们看到程序执行的过程
 """
 
 class SmsCodeView(View):
-    """短信验证码功能实现"""
+    """短信+图片验证码功能实现"""
     def get(self,request,mobile):  # 此句 mobile 已获取
         # 1. 获取请求参数
         image_code = request.GET.get('image_code')
@@ -128,17 +128,38 @@ class SmsCodeView(View):
         if redis_image_code.decode().lower() != image_code.lower():
             return JsonResponse({'code': 400, 'errmsg': '图片验证码错误'})
 
+        # 提取send-flag_mobile，控制语句
+        send_flag = redis_cli.get('send_flag_%s'%mobile)
+        if send_flag is not None:
+            return JsonResponse({'code':400,'errmsg':'不要频繁发送短信'})
+
         # 4. 生成短信验证码
         from random import randint
         sms_code = '%06d'%randint(0,999999)
+        # pipeline 流水线技术
+        #   1)新建管道
+        pipeline = redis_cli.pipeline()
+        #   2)管道收集
+        # 即如下第5步
+        #   3)管道执行
 
-        # 5. 保存短信验证码
-        redis_cli.setex(mobile,300,sms_code)
+        # 5. 保存短信验证码   管道收集
+        pipeline.setex(mobile,300,sms_code)
+        # 添加发送标记
+        pipeline.setex('send_flag_%s'%mobile,60,1)
+
+        # 管道执行
+        pipeline.execute()
 
         # 6. 发送短信验证码
-        from libs.yuntongxun.sms import CCP
-        #  ccp.send_template_sms('13203991352', ['331024', 3], 1)
-        CCP().send_template_sms(mobile, [sms_code, 3], 1)  # 此句需处理2min 离谱！
+        # from libs.yuntongxun.sms import CCP
+        # #  ccp.send_template_sms('13203991352', ['331024', 3], 1)
+        # CCP().send_template_sms(mobile, [sms_code, 3], 1)  # 此句需处理2min 离谱！
+
+        # celery 异步发送短信
+        from celery_tasks.sms.tasks import celery_send_sms_code
+        celery_send_sms_code.delay(mobile,sms_code)
+
         # 7. 返回响应
         return JsonResponse({'code': 0, 'errmsg': 'OK！'})
 
