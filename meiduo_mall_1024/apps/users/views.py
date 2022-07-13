@@ -97,7 +97,6 @@ class MobileCountView(View):
         4. 数据入库
         5. 返回响应
 """
-from django.db import DatabaseError
 
 class RegisterView(View):
     """用户注册功能实现"""
@@ -146,10 +145,15 @@ class RegisterView(View):
             return JsonResponse({'code': 400, 'errmsg': '请勾选用户协议！'})
 
         # 4. 数据入库  create_user实现加密
-        try:
-            User.objects.create_user(username=username, password=password, mobile=mobile)
-        except DatabaseError:
-            return JsonResponse({'code': 400, 'errmsg': '注册失败！'})
+        user = User.objects.create_user(username=username, password=password, mobile=mobile)
+
+        # 设置session信息
+        # request.session['user_id'] = user.id
+        # Django为我们提供了状态保持的方法
+        from django.contrib.auth import login
+        # user为已经登录的用户信息
+        # def login(request, user, backend=None):
+        login(request, user)
 
         # 5. 返回响应
         return JsonResponse({'code': 0, 'errmsg': '注册成功！'})
