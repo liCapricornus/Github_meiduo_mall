@@ -20,6 +20,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class User(AbstractUser):
+    """数据库 User 表"""
     mobile=models.CharField(max_length=11,unique=True)
     email_active = models.BooleanField(default=False, verbose_name='邮箱验证状态')
     # default_address = models.ForeignKey('Address', related_name='users', null=True, blank=True,

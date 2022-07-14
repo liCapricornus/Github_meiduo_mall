@@ -1,6 +1,7 @@
 import json
 import re
 
+from django.contrib.auth import login, logout
 from django.views import View
 from django.http import JsonResponse
 
@@ -171,6 +172,109 @@ class RegisterView(View):
         return JsonResponse({'code': 0, 'errmsg': '注册成功！'})
 
 
+"""
+登录
+
+前端：
+    当用户把用户名和密码输入完成之后，会点击登录按钮。这个时候前端应该发送一个axios请求
+
+后端：
+    请求    ：  接收数据，验证数据
+    业务逻辑：   验证用户名和密码是否正确，session
+    响应    ： 返回JSON数据 0 成功。 400 失败
+
+    POST        /login/   axios.post(this.host + '/login/', {
+步骤：
+    1. 接收数据
+    2. 验证数据
+    3. 验证用户名和密码是否正确
+    4. session
+    5. 判断是否记住登录
+    6. 返回响应
+"""
+from apps.users.models import User
+
+class LoginView(View):
+    """登录功能实现"""
+    def post(self,request):
+        # 1. 接收请求，获取数据
+        data_dict = json.loads(request.body.decode())
+        # 获取数据
+        username = data_dict.get('username')
+        password = data_dict.get('password')
+        remembered = data_dict.get('remembered')
+        # 2. 验证数据
+        if not all([username,password]):
+            return JsonResponse({'code':400,'errmsg':'参数不全！'})
+
+        # 用户名/手机号登录
+        if re.match(r'^1[345789]\d{9}$',username):  # 此处的132xx作为登录账户使用而非mobile
+            User.USERNAME_FIELD = 'mobile'
+        else:
+            User.USERNAME_FIELD = 'username'
+
+        # 3. 验证用户名和密码是否正确
+        # 方式1
+        # user = User.objects.get(username=username)
+        # 方式2 系统自带的认证系统
+        from django.contrib.auth import authenticate
+        # 如果用户名和密码正确，则返回 User信息
+        # 如果用户名和密码不正确，则返回 None
+        user = authenticate(username=username,password=password)
+
+        if not user:  # 等同于 if user is None
+            return JsonResponse({'code':400,'errmsg':'账号或密码错误'})
+        # 4. session状态保持
+        login(request,user)
+
+        # 5. 判断是否记住登录
+        if remembered: # 等同于 if remembered is not None
+            request.session.set_expiry(None)  # session id 记住2周
+        else:
+            request.session.set_expiry(0)   # 不记住登录 关闭浏览器session 过期
+        # 6. 返回响应
+        response =  JsonResponse({'code':0,'errmsg':'登录成功！'})
+        response.set_cookie('username',username)
+        return response
+
+"""
+------------用户登录状态退出-------------
+
+前端：
+    当用户点击退出按钮的时候，前端发送一个axios delete请求
+     var url = this.host + '/logout/';
+            axios.get(url, {
+
+后端：
+    请求
+    业务逻辑        退出
+    响应      返回JSON数据
+"""
+
+class LogoutView(View):
+    """用户登录状态退出"""
+    def get(self,request):
+        # 1.删除session信息
+        logout(request)
+        # 2.删除cookie信息
+        response = JsonResponse({'code': 0, 'errmsg': '登录成功！'})
+        response.delete_cookie('username')
+        return response
+
+"""
+------------重写LoginRequiredMixin-----------
+LoginRequiredMixin 未登录的用户 会返回 重定向并返回HttpResponse
+重定向并不是JSON数据
+
+我们需要是  返回JSON数据
+"""
+from utils.views import LoginRequiredJSONMixin
+
+class CenterView(LoginRequiredJSONMixin,View):
+
+    def get(self,request):
+
+        return JsonResponse({'code':0,'errmsg':'hello world'})
 
 
 

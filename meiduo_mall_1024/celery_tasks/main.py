@@ -44,7 +44,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'meiduo_mall_1024.settings')
 # meiduo_mall_1024指settings文件夹的meiduo_mall_1024
 app = Celery('celery_tasks')
 
-# 2.设置broker
+# 2.设置broker   消息队列
 app.config_from_object('celery_tasks.config')
 
 #3.需要celery 自动检测指定包的任务
