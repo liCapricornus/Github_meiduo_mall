@@ -239,3 +239,23 @@ class OAuthQQView(View):
         response.set_cookie('username',user.username)
         # 7. 返回响应
         return response
+
+"""
+----------------itsdangerous的基本使用-----------------
+itsdangerous就是为了数据加密的
+    加密
+    1. 导入 itsdangerous的类
+    2. 创建类的实例对象
+    3. 加密数据
+"""
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
+from meiduo_mall_1024 import settings
+
+# 加密
+#  def __init__(self, secret_key, expires_in=None, **kwargs):
+s = Serializer(secret_key=settings.SECRET_KEY, expires_in=3600)  # 3600s 1h
+s_encode = s.dumps({'openid': '1234567890'})
+# b'eyJhbGciOiJIUzUxMiIsImlhdCI6MTY1Nzg5NzkwMSwiZXhwIjoxNjU3OTAxNTAxfQ.eyJvcGVuaWQiOiIxMjM0NTY3ODkwIn0.zIOynmI4c9nJBlIIWYDLdQhwjCiQWsXoJybq6q5vEEV0CTZ0p3WgLKNvOX9k-rYs-oSdLHXhrk9o9jsBibWRqg'
+
+# 解密
+s_decode = s.loads(s_encode)
