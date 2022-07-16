@@ -139,7 +139,12 @@ class OAuthQQView(View):
         except OAuthQQUser.DoesNotExist:
             # 不存在
             # 5. 如果没有绑定过，则需要绑定
-            response = JsonResponse({'code':400,'access_token':openid})
+
+            # 对openid进行加密
+            from apps.oauth.utils import generic_openid
+            access_token = generic_openid(openid)
+
+            response = JsonResponse({'code':400,'access_token':access_token})
             return response
         else:
             # 存在
@@ -186,21 +191,27 @@ class OAuthQQView(View):
         password = data.get('password')
         mobile = data.get('mobile')
         sms_code = data.get('sms_code')
-        openid = data.get('access_token')
+        encode_openid = data.get('access_token')
+
+        # 对openid解密
+        from apps.oauth.utils import check_access_token
+        decode_openid = check_access_token(encode_openid)
+        if not decode_openid:
+            return JsonResponse({'code':400,'errmsg':'参数不足！'})
 
         # image_code = request.GET.get('image_code')
         # uuid = request.GET.get('image_code_id')
         # 前端传的json数据，不能用查询string形式接受 以上两个数据
 
         # 验证数据
-        if not all([password,mobile,sms_code,openid]):
-            return JsonResponse({'code':0,'errmsg':'参数不足！'})
+        if not all([password,mobile,sms_code,decode_openid]):
+            return JsonResponse({'code':400,'errmsg':'参数不足！'})
         # 判断手机号是否合法
         if not re.match(r'^1[3-9]\d{9}$', mobile):
-            return JsonResponse({'code': 0, 'errmsg': '请输入正确的手机号码！'})
+            return JsonResponse({'code': 400, 'errmsg': '请输入正确的手机号码！'})
         # 判断密码是否合格
         if not re.match(r'^[0-9A-Za-z]{8,20}$', password):
-            return JsonResponse({'code': 0, 'errmsg': '请输入8-20位的密码！'})
+            return JsonResponse({'code': 400, 'errmsg': '请输入8-20位的密码！'})
 
         # 判断短信+图片验证码是否一致 程序会跑到verifications/views验证
         # x.1连接redis
@@ -230,7 +241,7 @@ class OAuthQQView(View):
         #     5. 查询到用户手机号已经注册了。判断密码是否正确。密码正确就可以直接保存（绑定） 用户和openid信息
             if not user.check_password(password):
                 return JsonResponse({'code':400,'errmsg':'账号或密码错误'})
-        OAuthQQUser.objects.create(user=user,openid=openid)
+        OAuthQQUser.objects.create(user=user,openid=decode_openid)
 
         # 6. 完成状态保持
         # session+cookie
