@@ -271,9 +271,12 @@ LoginRequiredMixin 未登录的用户 会返回 重定向并返回HttpResponse
 from utils.views import LoginRequiredJSONMixin
 
 class CenterView(LoginRequiredJSONMixin,View):
-
+    """个人中心显示功能实现"""
     def get(self,request):
-
+        # request.user 就是 已经登录的用户信息  此处就是lishao用户的信息
+        # request.user 是来源于 中间件
+        # 系统会进行判断 如果我们确实是登录用户，则可以获取到 登录用户对应的 模型实例数据
+        # 如果我们确实不是登录用户，则request.user = AnonymousUser()  匿名用户
         info_data ={
             'username':request.user.username,
             'mobile':request.user.mobile,
@@ -282,6 +285,87 @@ class CenterView(LoginRequiredJSONMixin,View):
         }
         return JsonResponse({'code':0,'errmsg':'hello world','info_data':info_data})
 
+
+"""
+需求：     1.保存邮箱地址  2.发送一封激活邮件  3. 用户激活邮件
+
+前端：
+    当用户输入邮箱之后，点击保存。这个时候会发送axios请求。
+
+后端：
+    请求           接收请求，获取数据
+    业务逻辑        保存邮箱地址  发送一封激活邮件
+    响应           JSON  code=0
+
+    路由          PUT //更新数据
+    var url = this.host + '/emails/'
+            axios.put(url,
+    步骤
+        1. 接收请求
+        2. 获取数据
+        3. 保存邮箱地址
+        4. 发送一封激活邮件
+        5. 返回响应
+
+
+需求（要实现什么功能） --> 思路（ 请求。业务逻辑。响应） --> 步骤  --> 代码实现
+"""
+
+class EmailView(LoginRequiredJSONMixin,View):
+
+    def put(self,request):
+        # 1. 接收请求
+        data = json.loads(request.body.decode())
+
+        # 2. 获取数据
+        get_email = data.get('email')
+        # 验证数据
+        if not re.match(r'^[a-z0-9][\w\.\-]*@[a-z0-9\-]+(\.[a-z]{2,5}){1,2}$',get_email):
+            return JsonResponse({'code':400,'errmsg':'邮箱格式错误！'})
+
+        # 3. 保存邮箱地址
+        user = request.user  # user即为登录用户
+        user.email = get_email
+        user.save()
+
+        # 4. 发送一封激活邮件
+        # from django.core.mail import send_mail
+        # def send_mail(subject, message, from_email, recipient_list,
+        subject = '---美多商城激活邮件---'  # 收件箱主题显示
+        from_email = '美多商城<lishao_1024@163.com>'  # 发件人显示 ---美多商城---
+        recipient_list = ['705567814@qq.com','285051863@qq.com']
+
+        # 4.1 对a标签的连接数据进行加密处理
+        from apps.users.utils import generic_email_verify_token
+        token = generic_email_verify_token(request.user.id)  # 封装加密 绑定用户id
+
+        verify_url = "http://www.meiduo.site:8080/success_verify_email.html?token=%s" % token
+        # 4.2 组织我们的激活邮件
+        html_message = '<p>尊敬的用户您好！</p>' \
+                       '<p>感谢您使用美多商城。</p>' \
+                       '<p>您的邮箱为：%s 。请点击此链接激活您的邮箱：</p>' \
+                       '<p><a href="%s">%s<a></p>' % (get_email, verify_url, verify_url)
+
+        # send_mail(
+        #     subject=subject,
+        #     message='',
+        #     from_email=from_email,
+        #     recipient_list=recipient_list,
+        #     html_message=html_message,
+        # )
+
+        # 激活邮件实现celery异步发送
+        from celery_tasks.email.tasks import celery_send_email
+        celery_send_email.delay(
+            subject=subject,
+            message='',
+            from_email=from_email,
+            recipient_list=recipient_list,
+            html_message=html_message,
+        )
+
+        # 5. 返回响应
+        return JsonResponse({'code':0,'errmsg':'OK!'})
 
 
 
