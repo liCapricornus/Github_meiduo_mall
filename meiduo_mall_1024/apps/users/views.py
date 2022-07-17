@@ -560,8 +560,77 @@ class AddressView(LoginRequiredJSONMixin,View):
         return JsonResponse({'code':0,'errmsg':'收货地址显示成功！','addresses':address_list})
 
 
+"""
+需求：
+    修改地址
+        前端：var url = this.host + '/addresses/' + this.addresses[this.editing_address_index - 1].id + '/'
+                    axios.put(url, this.form_address, {
+            response.data.address
+            
+    删除地址
+        前端：axios.delete(this.host + '/addresses/' + this.addresses[index].id + '/', {
+        
+    设置默认地址
+        前端：var url = this.host + '/addresses/' + this.addresses[index].id + '/default/'
+             axios.put(url, {}, {
+             
+    修改地址标题
+        前端：axios.put(this.host + '/addresses/' + this.addresses[index].id + '/title/', {
+"""
 
+class AddressOperationView(LoginRequiredJSONMixin,View):
+    """修改update+删除delete 地址"""
+    # 修改地址
+    def put(self, request,address_id):
+        # 1.接收请求，获取数据
+        data = json.loads(request.body.decode())
 
+        receiver = data.get('receiver')
+        province = data.get('province_id')
+        city = data.get('city_id')
+        district = data.get('district_id')
+        place = data.get('place')
+        mobile = data.get('mobile')
+        tel = data.get('tel')
+        email = data.get('email')
+        title = data.get('title')
+
+        # user = request.user
+
+        # 2.修改数据
+        address = Address.objects.get(id=address_id)
+        # address = Address.objects.filter(user=user)
+
+        address.receiver = receiver
+        address.province_id = province
+        address.city_id = city
+        address.district_id = district
+        address.place = place
+        address.mobile = mobile
+        address.tel = tel
+        address.email = email
+        address.title = title
+
+        address.save()
+
+        # 3.对象数据转为字典数据
+        address_dict = {
+            'receiver': address.receiver,
+            'province': address.province.name,
+            'city': address.city.name,
+            'district': address.district.name,
+            'place': address.place,
+            'mobile': address.mobile,
+            'tel': address.tel,
+            'email': address.email,
+            'title': address.title,
+        }
+        # 4.返回响应
+        return JsonResponse({'code':0,'errmsg':'修改地址成功！','address':address_dict})
+
+    # 删除地址
+    def delete(self,request,address_id):
+        pass
 
 
 
