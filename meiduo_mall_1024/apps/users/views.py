@@ -562,20 +562,14 @@ class AddressView(LoginRequiredJSONMixin,View):
 
 """
 需求：
-    修改地址
+    修改地址  已完成
         前端：var url = this.host + '/addresses/' + this.addresses[this.editing_address_index - 1].id + '/'
                     axios.put(url, this.form_address, {
             response.data.address
             
-    删除地址
+    删除地址  已完成
         前端：axios.delete(this.host + '/addresses/' + this.addresses[index].id + '/', {
         
-    设置默认地址
-        前端：var url = this.host + '/addresses/' + this.addresses[index].id + '/default/'
-             axios.put(url, {}, {
-             
-    修改地址标题
-        前端：axios.put(this.host + '/addresses/' + this.addresses[index].id + '/title/', {
 """
 
 class AddressOperationView(LoginRequiredJSONMixin,View):
@@ -630,10 +624,107 @@ class AddressOperationView(LoginRequiredJSONMixin,View):
 
     # 删除地址
     def delete(self,request,address_id):
-        pass
+        # 1.接收请求，获取数据
+        address = Address.objects.get(id=address_id)
+        # 2.删除数据
+        try:
+            address.is_deleted = True
+            address.save()
+        except Exception:
+            return JsonResponse({'code': 400, 'errmsg': '删除地址发生错误！'})
+        # 3.返回响应
+        return JsonResponse({'code': 0, 'errmsg': 'delete is ok'})
 
+"""
+设置默认地址  
 
+    前端：var url = this.host + '/addresses/' + this.addresses[index].id + '/default/'
+         axios.put(url, {}, {
+         
+修改地址标题
+    前端：axios.put(this.host + '/addresses/' + this.addresses[index].id + '/title/', {
+"""
 
+class AddressDefaultView(LoginRequiredJSONMixin,View):
+    """设置默认地址"""
+    def put(self,request,address_id):
+        # 1.接收请求，获取数据
+        user = request.user
+        address = Address.objects.get(id=address_id)
+        # 2.处理业务逻辑
+        try:
+            # user.default_address_id = address_id # 逻辑上均可实现
+            user.default_address =address
+            user.save()
+        except Exception:
+            return JsonResponse({'code':400,'errmsg':'默认地址设置失败！'})
 
+        # 3.返回响应
+        return JsonResponse({'code':0,'errmsg':'默认地址设置成功！'})
 
+class AddressUpdateTitle(LoginRequiredJSONMixin,View):
+    """修改地址标题"""
+    def put(self,request,address_id):
+        # 1.接收请求，获取数据
+        data = json.loads(request.body.decode())
+        title = data.get('title')
+        address = Address.objects.get(id=address_id)
+        # 2.修改数据，数据入库
+        try:
+            address.title = title
+            address.save()
+        except Exception:
+            return JsonResponse({'code':400,'errmsg':'修改地址标题设置失败！'})
+        # 3.返回响应
+        return JsonResponse({'code':0,'errmsg':'修改地址标题设置成功！'})
 
+"""
+修改密码
+    前端： var url = this.host + '/password/';
+            axios.put(url, {
+    后端：接收请求  处理业务逻辑  返回响应
+"""
+
+class UpdateUserPassword(LoginRequiredJSONMixin,View):
+    """更改密码"""
+    def put(self,request):
+        # 1.接收请求，获取数据
+        user = request.user
+        data = json.loads(request.body.decode())
+        old_pwd = data.get('old_password')
+        new_pwd = data.get('new_password')
+        new_cpwd = data.get('new_password2')
+
+        # 2.验证数据，处理判断
+        if not all([old_pwd,new_pwd,new_cpwd]):
+            return JsonResponse({'code':400,'errmsg':'参数不全！'})
+
+        # 方式1 核实数据库中已加密的密码
+        # from django.contrib.auth import authenticate
+        # # 如果用户名和密码正确，则返回 User信息
+        # # 如果用户名和密码不正确，则返回 None
+        # user = authenticate(username=user,password=old_pwd)
+        # if not user:
+        #     return JsonResponse({'code':400,'errmsg':'原始密码输入错误！'})
+
+        # 方式2 check_password 亦可
+        try:
+            user.check_password(old_pwd)
+        except Exception:
+            return JsonResponse({'code':400,'errmsg':'原始密码输入错误！'})
+        if new_pwd != new_cpwd:
+            return JsonResponse({'code':400,'errmsg':'请输入相同密码！'})
+        if not re.match(r'^[0-9A-Za-z]{8,20}$',new_pwd):
+            return JsonResponse({'code':400,'errmsg':'密码格式不符合规范！'})
+
+        # 3.数据入库
+        # user.password = new_pwd  不加密
+        # user.set_password(new_pwd) 加密入库
+        try:
+            user.set_password(new_pwd)
+            user.save()
+        except Exception:
+            return JsonResponse({'code':400,'errmsg':'修改密码失败！'})
+
+        # 4.返回响应
+        return JsonResponse({'code':0,'errmsg':'修改密码成功！'})
