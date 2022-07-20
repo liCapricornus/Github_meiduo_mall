@@ -253,3 +253,7 @@ EMAIL_HOST_PASSWORD = 'SQLAGJISKGHPLJIA' # 邮箱授权码
 
 # EMAIL_FROM = '美多商城<lishao_1024@163.com>' # 发件人抬头
 
+#########加载自定义文件存储类#######################
+# 指定自定义的Django文件存储类
+DEFAULT_FILE_STORAGE = 'utils.fastdfs.storage.MyStorage'
+
