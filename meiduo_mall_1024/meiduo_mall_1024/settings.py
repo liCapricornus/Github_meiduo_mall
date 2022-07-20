@@ -68,7 +68,7 @@ ROOT_URLCONF = 'meiduo_mall_1024.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR/'templates'],  # 设置模板
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
