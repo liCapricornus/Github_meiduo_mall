@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'apps.goods',
     # CORS 跨域
     'corsheaders',
+    # 注册haystack 搜索
+    'haystack',
 ]
 
 # -------中间件--------
@@ -256,4 +258,14 @@ EMAIL_HOST_PASSWORD = 'SQLAGJISKGHPLJIA' # 邮箱授权码
 #########加载自定义文件存储类#######################
 # 指定自定义的Django文件存储类
 DEFAULT_FILE_STORAGE = 'utils.fastdfs.storage.MyStorage'
+
+# -----------ES haystack 配置----------------
+HAYSTACK_CONNECTIONS = {
+    'default': {
+        'ENGINE': 'haystack.backends.elasticsearch7_backend.Elasticsearch7SearchEngine',
+        # 'URL': 'http://127.0.0.1:9200/',
+        'URL': 'http://192.168.0.106:9200/',
+        'INDEX_NAME': 'haystack',
+    },
+}
 
