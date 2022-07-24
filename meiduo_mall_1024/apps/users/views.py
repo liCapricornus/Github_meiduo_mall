@@ -4,7 +4,7 @@ import re
 from django.contrib.auth import login, logout
 from django.views import View
 from django.http import JsonResponse
-
+from django_redis import get_redis_connection
 
 """
 需求分析： 根据页面的功能（从上到下，从左到右），哪些功能需要和后端配合完成
@@ -728,3 +728,137 @@ class UpdateUserPassword(LoginRequiredJSONMixin,View):
 
         # 4.返回响应
         return JsonResponse({'code':0,'errmsg':'修改密码成功！'})
+
+
+######################用户中心最近浏览###########################
+
+"""
+一 根据页面效果，分析需求（细心+经验）
+    1. 最近浏览记录 只有登录用户才可以访问。 我们只记录登录用户的浏览记录
+    2. 浏览记录应该有顺序
+    3. 没有分页
+二  功能
+① 在用户访问商品详情的时候， 添加浏览记录
+② 在个人中心，展示浏览记录
+
+三 分析
+问题1： 保存哪些数据？ 用户id，商品id,顺序（访问时间）
+问题2： 保存在哪里？   一般要保存在数据库 （缺点： ① 慢 ② 频繁操作数据库） 授课
+                    最好保存在redis中
+
+都可以。看公司具体的安排。 服务器内存比较大。 mysql + redis  
+
+
+user_id,sku_id,顺序
+
+key: value
+
+redis:
+    string:   x  
+    hash:     x 
+    list:     v  
+    set:      x  
+    zset:     v 
+            权重：值
+"""
+
+"""
+添加浏览记录
+    前端：
+            当登录用户，访问某一个具体SKU页面的时候，发送一个axios请求。 请求携带 sku_id
+    后端：
+         请求：        接收请求，获取请求参数，验证参数
+         业务逻辑；    连接redis，先去重，在保存到redsi中，只保存5条记录
+         响应：        返回JSON
+
+        路由：     POST        browse_histories 
+                axios.post(this.host+'/browse_histories/', {
+                sku_id: this.sku_id
+        步骤：
+            1. 接收请求
+            2. 获取请求参数
+            3. 验证参数
+            4. 连接redis    list
+            5. 去重
+            6. 保存到redsi中
+            7. 只保存5条记录
+            8. 返回JSON
+展示浏览记录
+     前端：
+           用户在访问浏览记录的时候，发送axios请求。 请求会携带session信息
+    后端：
+         请求：         
+         业务逻辑；    连接redis,获取redis数据（[1,2,3]）.根据商品id进行数据查询，将对象转换为字典
+         响应：        JSON
+
+        路由：    GET  
+                axios.get(this.host + '/browse_histories/', {
+        步骤：
+            1. 连接redis
+            2. 获取redis数据（[1,2,3]）
+            3. 根据商品id进行数据查询
+            4. 将对象转换为字典
+            5. 返回JSON
+"""
+from apps.goods.models import SKU
+class UserHistoryView(LoginRequiredJSONMixin,View):
+    """添加+展示 用户浏览器记录"""
+    def post(self,request):
+        """添加浏览记录"""
+        # 1.接受请求，获取数据
+        user = request.user
+        data = json.loads(request.body.decode())
+        sku_id = data.get('sku_id')
+
+        # 2.验证参数
+        if not all([user,sku_id]):
+            return JsonResponse({'code':400,'errmsg':'参数不全！'})
+        try:
+            sku = SKU.objects.get(id=sku_id)
+        except SKU.DoesNotExist:
+            return JsonResponse({'code':400,'errmsg':'没有此商品！'})
+
+        # 3.连接redis
+        redis_cli = get_redis_connection('user_history')
+        # 4.处理业务逻辑 ⭐⭐⭐
+        # 去重 就是redis_list删除
+        redis_cli.lrem('history_%s'%user.id,0,sku.id)
+        # 添加数据
+        redis_cli.lpush('history_%s'%user.id,sku.id)
+        # get key: (error) WRONGTYPE Operation against a key holding the wrong kind of value
+        # 大哥 get key 是redis_string 获取value
+        # redis_list 为 lrange key start stop 如：lrange history_1 0 -1 为显示全部value
+        # 只保存5条数据
+        redis_cli.ltrim('history_%s'%user.id,0,4)
+        # 5.返回响应
+        return JsonResponse({'code':0,'errmsg':'add user history OK!'})
+
+    def get(self,request):
+        """用户中心界面显示用户浏览记录"""
+        # 1.接收请求，获取参数
+        user = request.user
+        redis_cli = get_redis_connection('user_history')
+        # key = redis_cli.keys *  获取 key
+        key = "history_%s"%user.id
+        sku_ids = redis_cli.lrange(key,0,4)
+        # 2.验证参数
+        if not all([key,sku_ids]):
+            return JsonResponse({'code':400,'errmsg':'参数不全！'})
+
+        # 3.处理业务逻辑
+        sku_history_list = []
+        for sku_id in sku_ids:
+            try:
+                sku = SKU.objects.get(id=sku_id)
+            except SKU.DoesNotExist:
+                return JsonResponse({'code':400,'errmsg':'没有此商品!'})
+            else:
+                sku_history_list.append({
+                    'id':sku.id,
+                    'name':sku.name,
+                    'price':sku.price,
+                    'default_image':sku.default_image.url,
+                })
+
+        # 4.返回响应
+        return JsonResponse({'code':0,'errmsg':'OK!','skus':sku_history_list})
