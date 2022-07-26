@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'apps.areas',
     'apps.contents',
     'apps.goods',
+    'apps.carts',
     # CORS 跨域
     'corsheaders',
     # 注册haystack 搜索
@@ -174,6 +175,13 @@ CACHES = {
     "user_history": {  # 用户商品浏览记录
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": "redis://127.0.0.1:6379/3",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    },
+    "carts": {  #   用于购物车模块
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/4",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
